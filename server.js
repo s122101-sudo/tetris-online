@@ -7,7 +7,8 @@ const path = require('path');
 const { WebSocketServer } = require('ws');
 
 const html = fs.readFileSync(path.join(__dirname, 'index.html'));
-const MAX = 6;
+const MAX = 6; // 1ルームの最大人数
+const MAXROOMS = 10; // 同時に存在できるルームの最大数
 const NAME = /^[a-z0-9][a-z0-9_.-]{0,47}$/;
 const KEY = /^[A-Za-z_][A-Za-z0-9_-]{0,63}$/;
 
@@ -26,6 +27,26 @@ const server = http.createServer((req, res) => {
 
 const wss = new WebSocketServer({ server, maxPayload: 8192 });
 const rooms = new Map(); // ルーム名 -> { name, peers: Map(id -> {ws, presence}), timer }
+const lobby = new Set(); // ルーム一覧を見ているだけの接続
+
+const roomList = () => JSON.stringify({
+  t: 'rooms', max: MAXROOMS, cap: MAX,
+  rooms: [...rooms.values()].map((r) => ({
+    name: r.name,
+    n: r.peers.size,
+    playing: [...r.peers.values()].some((p) => p.presence.run === 1),
+  })),
+});
+
+let listTimer = 0;
+function markList() {
+  if (listTimer) return;
+  listTimer = setTimeout(() => {
+    listTimer = 0;
+    const msg = roomList();
+    for (const ws of lobby) if (ws.readyState === 1) ws.send(msg);
+  }, 300);
+}
 
 const newId = () => Math.random().toString(36).slice(2, 10).padEnd(8, '0');
 
@@ -60,16 +81,28 @@ wss.on('connection', (ws) => {
     if (!m || typeof m !== 'object') return;
     ws.isAlive = true;
 
+    if (m.t === 'l' && !room) {
+      lobby.add(ws);
+      ws.send(roomList());
+      return;
+    }
+
     if (m.t === 'j' && !room) {
       const name = String(m.room || '');
       if (!NAME.test(name)) { ws.close(); return; }
       let r = rooms.get(name);
-      if (!r) { r = { name, peers: new Map(), timer: 0 }; rooms.set(name, r); }
+      if (!r) {
+        if (rooms.size >= MAXROOMS) { ws.send('{"t":"nomore"}'); ws.close(); return; }
+        r = { name, peers: new Map(), timer: 0 };
+        rooms.set(name, r);
+      }
       if (r.peers.size >= MAX) { ws.send('{"t":"full"}'); ws.close(); return; }
       do { id = newId(); } while (r.peers.has(id));
       r.peers.set(id, { ws, presence: {} });
       room = r;
+      lobby.delete(ws);
       mark(room);
+      markList();
       return;
     }
 
@@ -84,11 +117,13 @@ wss.on('connection', (ws) => {
       if (Buffer.byteLength(JSON.stringify(next)) <= 4096) {
         me.presence = next;
         mark(room);
+        if ('run' in m.patch) markList();
       }
     }
   });
 
   ws.on('close', () => {
+    lobby.delete(ws);
     if (!room) return;
     room.peers.delete(id);
     if (room.peers.size === 0) {
@@ -97,6 +132,7 @@ wss.on('connection', (ws) => {
     } else {
       mark(room);
     }
+    markList();
   });
 });
 

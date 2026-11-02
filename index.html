@@ -29,7 +29,12 @@ canvas{display:block;border-radius:6px}
 #ogrid{display:grid;grid-template-columns:repeat(2,1fr);gap:4px}
 .ob{width:100%;aspect-ratio:1/2;background:var(--cell);border-radius:4px;display:block}
 .ob.dim{opacity:.35}
-#net{display:flex;gap:6px}
+#net{display:flex;flex-direction:column;align-items:center;gap:6px;max-width:100%}
+.nr{display:flex;gap:6px}
+#rt{color:var(--sub);font-size:12px}
+#rl{display:flex;flex-direction:column;gap:4px;max-height:130px;overflow-y:auto;width:100%;color:var(--sub);font-size:13px}
+#rl button{display:flex;justify-content:space-between;gap:12px;padding:6px 10px;font-size:13px}
+#rl button:disabled{opacity:.4;cursor:default}
 #code{width:110px;padding:8px;border-radius:8px;border:1px solid var(--grid);background:var(--cell);color:var(--ink);font:inherit}
 .toast{position:absolute;left:10px;right:10px;top:36%;text-align:center;font-weight:700;font-size:20px;pointer-events:none;opacity:0;text-shadow:0 0 6px var(--panel),0 0 6px var(--panel),0 0 10px var(--panel)}
 .toast.on{animation:tt 1.6s ease-out}
@@ -69,7 +74,7 @@ button:focus-visible{outline:3px solid #3b82f6;outline-offset:2px}
   <div class="board">
    <canvas id="main" width="300" height="600"></canvas>
    <div class="toast" id="toast"></div>
-   <div class="ov" id="ov"><h2 id="ovT">テトリス</h2><p id="ovP">ブロックを積んで、横一列をそろえて消そう。</p><button id="go">スタート</button><div id="net" hidden><input id="code" maxlength="20" placeholder="ルーム名" aria-label="ルーム名"><button id="jb">オンライン対戦</button></div></div>
+   <div class="ov" id="ov"><h2 id="ovT">テトリス</h2><p id="ovP">ブロックを積んで、横一列をそろえて消そう。</p><button id="go">スタート</button><div id="net" hidden><div class="nr"><input id="code" maxlength="20" placeholder="ルーム名" aria-label="ルーム名"><button id="jb">ルームを作る</button></div><small id="rt">ルーム一覧</small><div id="rl"></div></div></div>
   </div>
   <div class="pad" id="pad">
    <button data-a="left" aria-label="左へ">◀</button>
@@ -191,7 +196,7 @@ function begin(k,seed,list){starting=false;if(!list.includes(mep)){ovP.textConte
 function win(m){running=false;over=true;myrdy=false;pub({rdy:0,run:0,fin:1});go.hidden=false;show(m,'もう一度やるなら準備OKを押してください','準備OK')}
 function onPeers(ch){mep=(ch.peers.find(p=>p.isMe&&p.sameTab)||{}).peer||'';
  const ps=ch.peers.filter(p=>!p.isMe&&p.kind==='viewer').sort((a,b)=>a.peer<b.peer?-1:1);
- if(ch.peers.filter(p=>p.kind==='viewer').map(p=>p.peer).sort().indexOf(mep)>5){room.leave();room=null;online=false;ocard.hidden=true;net.hidden=false;document.querySelector('.keys').hidden=false;ovP.textContent='このルームは満員です（6人まで）。';return}
+ if(ch.peers.filter(p=>p.kind==='viewer').map(p=>p.peer).sort().indexOf(mep)>5){room.leave();room=null;online=false;ocard.hidden=true;net.hidden=false;document.querySelector('.keys').hidden=false;openLobby();ovP.textContent='このルームは満員です（6人まで）。';return}
  opps=ps;drawOpp();oname.textContent='あいて（'+(running?'残り'+aliveOpps().length:ps.length)+'人）'+(pend()?' ＋'+pend():'');
  if(running){if(!aliveOpps().length)win('勝ち！');return}
  if(starting)return;
@@ -201,10 +206,10 @@ function onPeers(ch){mep=(ch.peers.find(p=>p.isMe&&p.sameTab)||{}).peer||'';
  else if(!ps.every(p=>p.presence.rdy))ovP.textContent='全員の準備を待っています（'+(1+ps.filter(p=>p.presence.rdy).length)+'/'+(ps.length+1)+'）…';
  else if(ps.every(p=>mep<p.peer)){starting=true;const list=[mep,...ps.map(p=>p.peer)],k=Math.max(rd,...ps.map(p=>p.presence.rd|0))+1,seed=Math.random()*1e9|0;pub({rd:k,seed,pl:list,go:1,dead:0,fin:0,snt:{}});ovP.textContent='まもなく開始…';setTimeout(()=>begin(k,seed,list),1500)}
  else{const h=ps.find(p=>p.presence.go===1&&(p.presence.rd|0)>rd&&Array.isArray(p.presence.pl));if(h){starting=true;ovP.textContent='まもなく開始…';const list=h.presence.pl.filter(x=>typeof x==='string').slice(0,6);setTimeout(()=>begin(h.presence.rd|0,h.presence.seed|0,list),1400)}}}
-async function joinRoom(){let c=code.value.toLowerCase().replace(/[^a-z0-9_.-]/g,'').slice(0,20);if(!c)c=Math.random().toString(36).slice(2,6);code.value=c;
- try{room=await roomNS.join('t-'+c)}catch(e){ovP.textContent=e&&e.message==='full'?'このルームは満員です（6人まで）。':'ルームに入れませんでした。';return}
- online=true;net.hidden=true;ocard.hidden=false;document.querySelector('.keys').hidden=true;ovT.textContent='オンライン対戦';room.onPeers(onPeers,()=>{})}
-jb.onclick=joinRoom;code.onkeydown=e=>{e.stopPropagation();if(e.key==='Enter')joinRoom()};
+async function joinRoom(pre){let c=(pre||code.value).toLowerCase().replace(/[^a-z0-9_.-]/g,'').slice(0,20);if(!c)c=Math.random().toString(36).slice(2,6);code.value=c;
+ try{room=await roomNS.join(c)}catch(e){ovP.textContent=e&&e.message==='full'?'このルームは満員です（6人まで）。':e&&e.message==='nomore'?'ルームの数が上限（10個）です。一覧から選んでください。':'ルームに入れませんでした。';return}
+ online=true;closeLobby();net.hidden=true;ocard.hidden=false;document.querySelector('.keys').hidden=true;ovT.textContent='オンライン対戦';room.onPeers(onPeers,()=>{})}
+jb.onclick=()=>joinRoom();code.onkeydown=e=>{e.stopPropagation();if(e.key==='Enter')joinRoom()};
 function lost(){if(!online)return;online=false;running=false;over=true;room=null;go.hidden=false;show('接続が切れました','ページを再読み込みすると、もう一度入れます。','ひとりで遊ぶ')}
 function joinWS(name){return new Promise((resolve,reject)=>{
  const ws=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host);
@@ -217,13 +222,23 @@ function joinWS(name){return new Promise((resolve,reject)=>{
   leave(){clearInterval(ka);ws.onclose=null;ws.close();return Promise.resolve()}};
  ws.onopen=()=>{send({t:'j',room:name});ka=setInterval(()=>send({t:'k'}),25000)};
  ws.onmessage=e=>{let m;try{m=JSON.parse(e.data)}catch(_){return}
-  if(m.t==='full'){done=true;reject(new Error('full'));return}
+  if(m.t==='full'||m.t==='nomore'){done=true;reject(new Error(m.t));return}
   if(m.t==='peers'){me=m.me;last={peers:m.peers.map(q=>({peer:q.peer,isMe:q.peer===me,sameTab:q.peer===me,kind:'viewer',guest:false,presence:q.presence||{}}))};
    if(!done){done=true;resolve(r)}if(handler)handler(last)}};
  ws.onerror=()=>{if(!done){done=true;reject(new Error('net'))}};
  ws.onclose=()=>{clearInterval(ka);if(!done){done=true;reject(new Error('net'));return}lost()};
 })}
-roomNS={join:joinWS};net.hidden=false;
+let lw=null,lt=0;
+function closeLobby(){clearTimeout(lt);if(lw){lw.onclose=null;lw.close();lw=null}}
+function openLobby(){closeLobby();lw=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host);
+ lw.onopen=()=>lw.send('{"t":"l"}');
+ lw.onmessage=e=>{let m;try{m=JSON.parse(e.data)}catch(_){return}if(m.t==='rooms')showRooms(m)};
+ lw.onclose=()=>{lt=setTimeout(openLobby,3000)}}
+function showRooms(m){rl.textContent='';rt.textContent='ルーム一覧（'+m.rooms.length+'/'+m.max+'）';
+ if(!m.rooms.length){rl.textContent='まだルームがありません。';return}
+ m.rooms.forEach(r=>{const b=document.createElement('button'),a=document.createElement('span'),c=document.createElement('span');
+  b.disabled=r.n>=m.cap;a.textContent=r.name;c.textContent=r.n+'/'+m.cap+(r.playing?' 対戦中':'');b.append(a,c);b.onclick=()=>joinRoom(r.name);rl.append(b)})}
+roomNS={join:joinWS};net.hidden=false;openLobby();
 requestAnimationFrame(loop);
 </script>
 </body>
