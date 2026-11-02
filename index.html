@@ -12,7 +12,11 @@ box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:en
 html{scroll-padding-top:env(safe-area-inset-top,0px)}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:"Hiragino Sans","Yu Gothic",system-ui,sans-serif;min-height:100vh;display:flex;justify-content:center;align-items:center;padding:12px;touch-action:manipulation;-webkit-user-select:none;user-select:none}
-.app{display:flex;gap:16px;align-items:stretch;max-width:100%}
+.app{display:grid;grid-template-columns:120px auto 100px auto;grid-template-areas:"l b n o" "u u u u";gap:16px;justify-content:center;align-items:stretch;max-width:100%}
+.sl{grid-area:l}.mid{grid-area:b}.sn{grid-area:n;width:100px}
+#ocard{grid-area:o;align-self:start;width:340px}
+.under{grid-area:u;display:flex;gap:16px;justify-content:center;align-items:flex-start;flex-wrap:wrap}
+.under .keys{width:160px}
 .board{position:relative;background:#fff;padding:4px;border-radius:10px;box-shadow:0 6px 16px rgba(0,0,0,.25)}
 canvas{display:block;border-radius:6px}
 #main{height:min(66vh,600px);aspect-ratio:1/2;background:var(--cell);outline:1px solid #1b2333}
@@ -23,10 +27,11 @@ canvas{display:block;border-radius:6px}
 .card small{display:block;color:var(--sub);font-size:12px;margin-bottom:4px}
 .card b{font-size:24px;font-variant-numeric:tabular-nums}
 #next,#hold{width:100%;aspect-ratio:1;background:var(--cell);border-radius:6px}
+#next{aspect-ratio:4/15}
 .ov{position:absolute;inset:4px;border-radius:6px;background:color-mix(in srgb,var(--panel) 88%,transparent);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center}
 .ov.hide{display:none}
 [hidden]{display:none!important}
-#ogrid{display:grid;grid-template-columns:repeat(2,1fr);gap:4px}
+#ogrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
 .ob{width:100%;aspect-ratio:1/2;background:var(--cell);border-radius:4px;display:block}
 .ob.dim{opacity:.35}
 #net{width:230px;align-self:flex-start;display:flex;flex-direction:column;gap:8px;text-align:left}
@@ -52,15 +57,23 @@ button:focus-visible{outline:3px solid #3b82f6;outline-offset:2px}
 .pad{display:none;gap:6px;justify-content:center;margin-top:12px}
 .pad button{width:min(52px,11.5vw);height:48px;padding:0;font-size:22px}
 .keys{text-align:left;font-size:12px;color:var(--sub);line-height:1.7}
+@media (max-width:980px){
+ .app{grid-template-columns:120px auto 100px;grid-template-areas:"l b n" "o o o" "u u u"}
+ #ocard{width:100%;max-width:400px;justify-self:center}
+}
 @media (max-width:640px){
- .app{display:grid;grid-template-columns:60px auto 60px;grid-template-areas:"l b r" "p p p" "o o o";justify-content:center;justify-items:center;gap:8px}
- .app>div:not(.side):not(#net){display:contents}
- .board{grid-area:b}.pad{grid-area:p}.app>.side:first-child{grid-area:l}.app>.side:nth-child(3){grid-area:r}#net{grid-area:o;width:100%;max-width:340px}
- .side{width:60px;gap:8px}.stats{gap:8px}
+ .app{grid-template-columns:56px auto 56px;grid-template-areas:"l b n" "p p p" "o o o" "u u u";justify-items:center;gap:8px}
+ .mid{display:contents}
+ .board{grid-area:b}.pad{grid-area:p}
+ .side,.sn{width:56px;gap:8px}.stats{gap:8px}
  .card{padding:6px}.card small{font-size:10px}.card b{font-size:15px}
+ #net,#ocard{padding:10px}
+ #ocard{width:100%;max-width:360px}
+ .under{flex-direction:column;align-items:center;width:100%}
+ #net{width:100%;max-width:340px}
  .keys{display:none}
  #next,#hold{width:100%}
- #main{height:min(46vh,200vw - 360px,480px)}
+ #main{height:min(46vh,200vw - 330px,480px)}
  .pad{display:flex}
 }
 @media (hover:none){.pad{display:flex}.keys{display:none}}
@@ -68,7 +81,7 @@ button:focus-visible{outline:3px solid #3b82f6;outline-offset:2px}
 </head>
 <body>
 <div class="app">
- <div class="side">
+ <div class="side sl">
   <div class="card"><small>ホールド</small><canvas id="hold" width="80" height="80"></canvas></div>
   <div class="stats">
    <div class="card"><small>スコア</small><b id="sc">0</b></div>
@@ -76,7 +89,7 @@ button:focus-visible{outline:3px solid #3b82f6;outline-offset:2px}
    <div class="card"><small>ライン</small><b id="ln">0</b></div>
   </div>
  </div>
- <div>
+ <div class="mid">
   <div class="board">
    <canvas id="main" width="300" height="600"></canvas>
    <div class="toast" id="toast"></div>
@@ -92,12 +105,14 @@ button:focus-visible{outline:3px solid #3b82f6;outline-offset:2px}
    <button data-a="hold" aria-label="ホールド">⇄</button>
   </div>
  </div>
- <div class="side">
-  <div class="card"><small>次のブロック</small><canvas id="next" width="80" height="80"></canvas></div>
-  <div class="card" id="ocard" hidden><small id="oname">あいて</small><div id="ogrid"><div class="ow" hidden><span></span><canvas class="ob" width="100" height="200"></canvas></div><div class="ow" hidden><span></span><canvas class="ob" width="100" height="200"></canvas></div><div class="ow" hidden><span></span><canvas class="ob" width="100" height="200"></canvas></div><div class="ow" hidden><span></span><canvas class="ob" width="100" height="200"></canvas></div><div class="ow" hidden><span></span><canvas class="ob" width="100" height="200"></canvas></div></div></div>
+ <div class="side sn">
+  <div class="card"><small>次のブロック</small><canvas id="next" width="80" height="300"></canvas></div>
+ </div>
+ <div class="card" id="ocard" hidden><small id="oname">あいて</small><div id="ogrid"><div class="ow" hidden><span></span><canvas class="ob" width="100" height="200"></canvas></div><div class="ow" hidden><span></span><canvas class="ob" width="100" height="200"></canvas></div><div class="ow" hidden><span></span><canvas class="ob" width="100" height="200"></canvas></div><div class="ow" hidden><span></span><canvas class="ob" width="100" height="200"></canvas></div><div class="ow" hidden><span></span><canvas class="ob" width="100" height="200"></canvas></div><div class="ow" hidden><span></span><canvas class="ob" width="100" height="200"></canvas></div></div><div class="ow" hidden><span></span><canvas class="ob" width="100" height="200"></canvas></div><div class="ow" hidden><span></span><canvas class="ob" width="100" height="200"></canvas></div><div class="ow" hidden><span></span><canvas class="ob" width="100" height="200"></canvas></div><div class="ow" hidden><span></span><canvas class="ob" width="100" height="200"></canvas></div></div></div>
+  <div class="under">
+  <div class="card" id="net" hidden><small>オンライン対戦</small><input id="nm" maxlength="12" placeholder="あなたの名前" aria-label="あなたの名前"><div class="nr"><input id="code" maxlength="20" placeholder="ルーム名" aria-label="ルーム名"><button id="jb">ルームを作る</button></div><small id="croom">ルームに入っていません</small><small id="rt">ルーム一覧</small><div id="rl"></div></div>
   <div class="card keys">←→ 移動<br>↑ / X 右回転<br>Z 左回転<br>↓ 落とす<br>Space 一気に<br>C / Shift ホールド<br>P 一時停止</div>
  </div>
- <div class="card" id="net" hidden><small>オンライン対戦</small><input id="nm" maxlength="12" placeholder="あなたの名前" aria-label="あなたの名前"><div class="nr"><input id="code" maxlength="20" placeholder="ルーム名" aria-label="ルーム名"><button id="jb">ルームを作る</button></div><small id="croom">ルームに入っていません</small><small id="rt">ルーム一覧</small><div id="rl"></div></div>
 </div>
 <script>
 const W=10,H=20,S=30;
@@ -107,11 +122,12 @@ const cv=document.getElementById('main'),cx=cv.getContext('2d');
 const nv=document.getElementById('next'),nx=nv.getContext('2d');
 const hv=document.getElementById('hold'),hx=hv.getContext('2d');
 const ov=document.getElementById('ov');
-let grid,cur,bag=[],holdT=-1,canHold=true,b2b=false,rnd=Math.random,nextT,score,lines,level,over,paused,running,last,acc;
+let grid,cur,bag=[],holdT=-1,canHold=true,b2b=false,rnd=Math.random,nq=[],solo=false,score,lines,level,over,paused,running,last,acc;
 const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 function draw1(c,x,y,i,s,a){c.globalAlpha=a||1;c.fillStyle=COL[i];c.fillRect(x*s+1,y*s+1,s-2,s-2);c.fillStyle='rgba(255,255,255,.28)';c.fillRect(x*s+1,y*s+1,s-2,4);c.globalAlpha=1}
 function take(){if(!bag.length){bag=[0,1,2,3,4,5,6];for(let i=6;i>0;i--){const j=rnd()*(i+1)|0;[bag[i],bag[j]]=[bag[j],bag[i]]}}return bag.pop()}
-function spawn(h){const t=h===undefined?nextT:h;if(h===undefined)nextT=take();const m=SH[t].map(r=>r.slice());cur={t,m,x:(W-m.length)/2|0,y:t?0:-1,r:0,sp:false,kick:0,lt:null,rs:0};if(hit(cur.m,cur.x,cur.y))end();drawNext()}
+function fillQ(){while(nq.length<5)nq.push(take())}
+function spawn(h){const t=h===undefined?nq.shift():h;if(h===undefined)fillQ();const m=SH[t].map(r=>r.slice());cur={t,m,x:(W-m.length)/2|0,y:t?0:-1,r:0,sp:false,kick:0,lt:null,rs:0};if(hit(cur.m,cur.x,cur.y))end();drawNext()}
 function hit(m,px,py){for(let y=0;y<m.length;y++)for(let x=0;x<m[y].length;x++)if(m[y][x]){const gx=px+x,gy=py+y;if(gx<0||gx>=W||gy>=H||(gy>=0&&grid[gy][gx]>=0))return true}return false}
 function rotM(m){return m[0].map((_,i)=>m.map(r=>r[i]).reverse())}
 function move(dx){if(!ok())return;if(!hit(cur.m,cur.x+dx,cur.y)){cur.x+=dx;cur.sp=false;relock();render()}}
@@ -148,15 +164,14 @@ function render(){cx.clearRect(0,0,cv.width,cv.height);
  for(let y=0;y<H;y++)for(let x=0;x<W;x++)if(grid[y][x]>=0)draw1(cx,x,y,grid[y][x],S);
  if(cur&&!over){let gy=cur.y;while(!hit(cur.m,cur.x,gy+1))gy++;
   cur.m.forEach((r,y)=>r.forEach((v,x)=>{if(v){draw1(cx,cur.x+x,gy+y,cur.t,S,.22);if(cur.y+y>=0)draw1(cx,cur.x+x,cur.y+y,cur.t,S)}}))}}
-function drawNext(){nx.clearRect(0,0,80,80);const m=trim(SH[nextT]),s=18,ox=(80-m[0].length*s)/2/s,oy=(80-m.length*s)/2/s;
- m.forEach((r,y)=>r.forEach((v,x)=>{if(v)draw1(nx,x+ox,y+oy,nextT,s)}))}
+function drawNext(){nx.clearRect(0,0,80,300);nq.slice(0,5).forEach((t,i)=>{const m=trim(SH[t]),s=14,ox=(80-m[0].length*s)/2/s,oy=(60*i+(60-m.length*s)/2)/s;m.forEach((r,y)=>r.forEach((v,x)=>{if(v)draw1(nx,x+ox,y+oy,t,s)}))})}
 function drawHold(){hx.clearRect(0,0,80,80);if(holdT<0)return;const m=trim(SH[holdT]),s=18,ox=(80-m[0].length*s)/2/s,oy=(80-m.length*s)/2/s;m.forEach((r,y)=>r.forEach((v,x)=>{if(v)draw1(hx,x+ox,y+oy,holdT,s,canHold?1:.35)}))}
 function doHold(){if(!ok()||!canHold)return;canHold=false;const t=cur.t;if(holdT<0){holdT=t;spawn()}else{const h=holdT;holdT=t;spawn(h)}drawHold();render()}
 function show(t,p,b){ovT.textContent=t;ovP.textContent=p;go.textContent=b;ov.classList.remove('hide')}
-function end(){over=true;running=false;if(online){myrdy=false;pub({dead:1,run:0,rdy:0});go.hidden=false;show('負け… '+(aliveOpps().length+1)+'位','もう一度やるなら準備OKを押してください','準備OK');return}show('ゲームオーバー','スコア '+score+'・'+lines+' ライン','もう一度')}
-function start(){grid=Array.from({length:H},()=>Array(W).fill(-1));bag=[];holdT=-1;canHold=true;b2b=false;drawHold();score=0;lines=0;level=1;over=false;paused=false;running=true;acc=0;last=performance.now();nextT=take();spawn();stats();render();ov.classList.add('hide');if(document.activeElement)document.activeElement.blur();if(online)pub({rd,snt:{},dead:0,fin:0,run:1,go:0,rdy:0})}
-function pause(){if(!running||over||online)return;paused=!paused;if(paused)show('一時停止','P キーか下のボタンで再開','再開');else{ov.classList.add('hide');last=performance.now()}}
-go.onclick=()=>{if(online)ready();else if(paused)pause();else start()};
+function end(){over=true;running=false;if(online&&solo){solo=false;pub({dead:1,run:0,fin:1,solo:0});go.hidden=false;show('ゲームオーバー','スコア '+score+'・'+lines+' ライン','もう一度');return}if(online){myrdy=false;pub({dead:1,run:0,rdy:0});go.hidden=false;show('負け… '+(aliveOpps().length+1)+'位','もう一度やるなら準備OKを押してください','準備OK');return}show('ゲームオーバー','スコア '+score+'・'+lines+' ライン','もう一度')}
+function start(){grid=Array.from({length:H},()=>Array(W).fill(-1));bag=[];holdT=-1;canHold=true;b2b=false;drawHold();score=0;lines=0;level=1;over=false;paused=false;running=true;acc=0;last=performance.now();nq=[];fillQ();spawn();stats();render();ov.classList.add('hide');if(document.activeElement)document.activeElement.blur();if(online)pub({rd,snt:{},dead:0,fin:0,run:1,solo:solo?1:0,go:0,rdy:0})}
+function pause(){if(!running||over||(online&&!solo))return;paused=!paused;if(paused)show('一時停止','P キーか下のボタンで再開','再開');else{ov.classList.add('hide');last=performance.now()}}
+go.onclick=()=>{if(paused)pause();else if(online){if(opps.length)ready();else startSolo()}else start()};
 function loop(t){requestAnimationFrame(loop);if(!ok()){last=t;return}
  const nw=performance.now();
  if(hd.l!==null&&nw>=hd.l){move(-1);hd.l=nw+35}
@@ -182,7 +197,7 @@ const act={left:()=>move(-1),right:()=>move(1),rot,rotl:()=>rot(-1),hold:doHold,
 document.querySelectorAll('#pad button').forEach(b=>{let iv;const a=act[b.dataset.a],rep=['left','right','down'].includes(b.dataset.a);
  b.addEventListener('pointerdown',e=>{e.preventDefault();a();if(rep){clearInterval(iv);iv=setInterval(a,b.dataset.a==='down'?25:70)}});
  ['pointerup','pointerleave','pointercancel'].forEach(n=>b.addEventListener(n,()=>clearInterval(iv)))});
-grid=Array.from({length:H},()=>Array(W).fill(-1));nextT=take();drawNext();drawHold();render();
+grid=Array.from({length:H},()=>Array(W).fill(-1));fillQ();drawNext();drawHold();render();
 matchMedia('(prefers-color-scheme:dark)').addEventListener('change',render);
 let roomNS=null,room=null,opps=[],online=false,rd=0,myrdy=false,starting=false,sent={},recv={},mep='',pl=[],curRoom='';
 const mb=s=>()=>{s|=0;s=s+0x6D2B79F5|0;let t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296};
@@ -198,32 +213,35 @@ function addGarbage(n){const h=Math.random()*W|0;for(let i=0;i<n;i++){if(grid[0]
 function netLock(c,ts){let a=ts?(ts===2?c*2:c):[0,0,1,2,4][c];const p=pend();if(a>0){const k=Math.min(a,p);a-=k;eat(k)}
  if(a>0){const al=aliveOpps();if(al.length){const t='p'+al[Math.random()*al.length|0].peer;sent[t]=(sent[t]|0)+a;pub({snt:sent})}}
  if(!c){const g=pend();if(g>0){eat(g);addGarbage(Math.min(g,10))}}}
+function startSolo(){solo=true;rnd=Math.random;sent={};recv={};pl=[];start()}
 function ready(){myrdy=true;go.hidden=true;ovP.textContent='相手の準備を待っています…';pub({rdy:1,dead:0})}
-function begin(k,seed,list){starting=false;if(!list.includes(mep)){ovP.textContent='対戦が始まりました。終わるまでお待ちください。';return}pl=list;rd=k;rnd=mb(seed);sent={};recv={};myrdy=false;start()}
+function begin(k,seed,list){starting=false;solo=false;if(!list.includes(mep)){ovP.textContent='対戦が始まりました。終わるまでお待ちください。';return}pl=list;rd=k;rnd=mb(seed);sent={};recv={};myrdy=false;start()}
 function win(m){running=false;over=true;myrdy=false;pub({rdy:0,run:0,fin:1});go.hidden=false;show(m,'もう一度やるなら準備OKを押してください','準備OK')}
 function onPeers(ch){mep=(ch.peers.find(p=>p.isMe&&p.sameTab)||{}).peer||'';
- const ps=ch.peers.filter(p=>!p.isMe&&p.kind==='viewer').sort((a,b)=>a.peer<b.peer?-1:1);
- if(ch.peers.filter(p=>p.kind==='viewer').map(p=>p.peer).sort().indexOf(mep)>5){room.leave();room=null;online=false;curRoom='';setCur();ocard.hidden=true;net.hidden=false;document.querySelector('.keys').hidden=false;openLobby();ovP.textContent='このルームは満員です（6人まで）。';return}
+ const ps=ch.peers.filter(p=>!p.isMe&&p.kind==='viewer').sort((a,b)=>a.peer<b.peer?-1:1),lb=ps.filter(p=>!p.presence.solo);
+ if(ch.peers.filter(p=>p.kind==='viewer').map(p=>p.peer).sort().indexOf(mep)>6){room.leave();room=null;online=false;curRoom='';setCur();ocard.hidden=true;net.hidden=false;document.querySelector('.keys').hidden=false;openLobby();ovP.textContent='このルームは満員です（7人まで）。';return}
  opps=ps;drawOpp();oname.textContent='あいて（'+(running?'残り'+aliveOpps().length:ps.length)+'人）'+(pend()?' ＋'+pend():'');
- if(running){if(!aliveOpps().length)win('勝ち！');return}
+ if(running){
+  if(solo&&!starting){const h=ps.find(p=>p.presence.go===1&&(p.presence.rd|0)>rd&&Array.isArray(p.presence.pl)&&p.presence.pl.includes(mep));if(h){starting=true;flash('まもなく対戦開始！');const list=h.presence.pl.filter(x=>typeof x==='string').slice(0,7);setTimeout(()=>begin(h.presence.rd|0,h.presence.seed|0,list),1400)}}
+  else if(!solo&&!aliveOpps().length)win('勝ち！');return}
  if(starting)return;
- if(!ps.length){go.hidden=true;ovP.textContent='ルーム「'+code.value+'」で相手を待っています…'}
- else if(ps.some(p=>p.presence.run===1)){go.hidden=true;ovP.textContent='ほかの人が対戦中です。終わるまでお待ちください。'}
- else if(!myrdy){go.hidden=false;go.textContent='準備OK';ovP.textContent=(ps.length+1)+'人います。準備ができたら押してください。'}
- else if(!ps.every(p=>p.presence.rdy))ovP.textContent='全員の準備を待っています（'+(1+ps.filter(p=>p.presence.rdy).length)+'/'+(ps.length+1)+'）…';
- else if(ps.every(p=>mep<p.peer)){starting=true;const list=[mep,...ps.map(p=>p.peer)],k=Math.max(rd,...ps.map(p=>p.presence.rd|0))+1,seed=Math.random()*1e9|0;pub({rd:k,seed,pl:list,go:1,dead:0,fin:0,snt:{}});ovP.textContent='まもなく開始…';setTimeout(()=>begin(k,seed,list),1500)}
- else{const h=ps.find(p=>p.presence.go===1&&(p.presence.rd|0)>rd&&Array.isArray(p.presence.pl));if(h){starting=true;ovP.textContent='まもなく開始…';const list=h.presence.pl.filter(x=>typeof x==='string').slice(0,6);setTimeout(()=>begin(h.presence.rd|0,h.presence.seed|0,list),1400)}}}
+ if(!ps.length){if(myrdy){myrdy=false;pub({rdy:0})}go.hidden=false;go.textContent='ひとりで始める';ovP.textContent='ルーム「'+curRoom+'」にはまだ自分だけです。ひとりでも遊べます。'}
+ else if(ps.some(p=>p.presence.run===1&&!p.presence.solo)){go.hidden=true;ovP.textContent='ほかの人が対戦中です。終わるまでお待ちください。'}
+ else if(!myrdy){go.hidden=false;go.textContent='準備OK';ovP.textContent=(ps.length+1)+'人います。準備ができたら押してください。'+(ps.some(p=>p.presence.solo)?'（ひとり遊び中の人は、自動で対戦に移ります）':'')}
+ else if(!lb.every(p=>p.presence.rdy))ovP.textContent='全員の準備を待っています（'+(1+lb.filter(p=>p.presence.rdy).length)+'/'+(lb.length+1)+'）…';
+ else if(lb.every(p=>mep<p.peer)){starting=true;const list=[mep,...ps.map(p=>p.peer)],k=Math.max(rd,...ps.map(p=>p.presence.rd|0))+1,seed=Math.random()*1e9|0;pub({rd:k,seed,pl:list,go:1,dead:0,fin:0,snt:{}});ovP.textContent='まもなく開始…';setTimeout(()=>begin(k,seed,list),1500)}
+ else{const h=ps.find(p=>p.presence.go===1&&(p.presence.rd|0)>rd&&Array.isArray(p.presence.pl));if(h){starting=true;ovP.textContent='まもなく開始…';const list=h.presence.pl.filter(x=>typeof x==='string').slice(0,7);setTimeout(()=>begin(h.presence.rd|0,h.presence.seed|0,list),1400)}}}
 async function joinRoom(pre){
- if(online&&(running||starting)){flashCur('対戦中は部屋を移れません');return}
+ if(online&&!solo&&(running||starting)){flashCur('対戦中は部屋を移れません');return}
  let c=(pre||code.value).toLowerCase().replace(/[^a-z0-9_.-]/g,'').slice(0,20);if(!c)c=Math.random().toString(36).slice(2,6);code.value=c;
  if(online&&c===curRoom)return;
- let nr;try{nr=await roomNS.join(c)}catch(e){ovP.textContent=e&&e.message==='full'?'このルームは満員です（6人まで）。':e&&e.message==='nomore'?'ルームの数が上限（10個）です。一覧から選んでください。':'ルームに入れませんでした。';return}
- if(room)room.leave();room=nr;
+ let nr;try{nr=await roomNS.join(c)}catch(e){ovP.textContent=e&&e.message==='full'?'このルームは満員です（7人まで）。':e&&e.message==='nomore'?'ルームの数が上限（10個）です。一覧から選んでください。':'ルームに入れませんでした。';return}
+ if(room)room.leave();room=nr;if(solo){solo=false;running=false;over=true;ov.classList.remove('hide')}
  online=true;curRoom=c;rd=0;myrdy=false;starting=false;opps=[];pl=[];sent={};recv={};drawOpp();setCur();
  ocard.hidden=false;document.querySelector('.keys').hidden=true;ovT.textContent='オンライン対戦';
  room.onPeers(onPeers,()=>{});pub();if(lastRooms)showRooms(lastRooms)}
 jb.onclick=()=>joinRoom();code.onkeydown=e=>{e.stopPropagation();if(e.key==='Enter')joinRoom()};
-function lost(){if(!online)return;online=false;running=false;over=true;room=null;setCur();go.hidden=false;show('接続が切れました','ページを再読み込みすると、もう一度入れます。','ひとりで遊ぶ')}
+function lost(){if(!online)return;online=false;solo=false;running=false;over=true;room=null;setCur();go.hidden=false;show('接続が切れました','ページを再読み込みすると、もう一度入れます。','ひとりで遊ぶ')}
 function joinWS(name){return new Promise((resolve,reject)=>{
  const ws=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host);
  let me='',handler=null,pend={},tm=0,last=null,done=false,ka=0;
