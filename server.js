@@ -195,6 +195,7 @@ function trackRound(room, id, pres) {
         rd: pres.rd,
         players: pl,
         uids: Object.fromEntries(pl.map((x) => [x, room.peers.get(x).uid])),
+        names: Object.fromEntries(pl.map((x) => [x, String(room.peers.get(x).presence.nm || '').slice(0, 12)])),
         dead: [],
         t0: Date.now(),
       };
@@ -207,26 +208,42 @@ function trackRound(room, id, pres) {
   }
 }
 
+// 参加者ひとりに結果を届ける（ルームの接続と、同じアカウントのほかの接続の両方へ）
+function deliver(room, id, uid, msg) {
+  const w = room.peers.get(id) && room.peers.get(id).ws;
+  const text = JSON.stringify(msg);
+  if (w && w.readyState === 1) w.send(text);
+  const set = uid && uidSockets.get(uid);
+  if (set) for (const x of set) if (x !== w && x.readyState === 1) x.send(text);
+}
+
 function checkRound(room) {
   const r = room.round;
   if (!r) return;
   const alive = r.players.filter((id) => !r.dead.includes(id));
   if (alive.length > 1) return;
   room.round = null;
-  if (!store.ready || Date.now() - r.t0 < MIN_ROUND) return; // 短すぎる対戦は記録しない
   const order = [...alive, ...[...r.dead].reverse()]; // 1位から順
   const n = order.length;
-  order.forEach((id, i) => {
+  const rated = store.ready && Date.now() - r.t0 >= MIN_ROUND; // 短すぎる対戦はレートに入れない
+  const info = order.map((id, i) => {
     const uid = r.uids[id];
-    if (!uid) return;
-    const old = rtOf(uid);
-    const prev = store.players[uid] || { r: 1000, g: 0 };
-    const nw = Math.max(0, old + delta(n, i + 1));
-    store.players[uid] = { r: nw, g: (prev.g | 0) + 1, u: Date.now() };
-    sendUid(uid, { t: 'result', n, place: i + 1, old, delta: nw - old, rt: nw });
-    sendUid(uid, meMsg(uid));
+    let old = null, d = null, nw = null;
+    if (rated && uid) {
+      old = rtOf(uid);
+      nw = Math.max(0, old + delta(n, i + 1));
+      d = nw - old;
+      const prev = store.players[uid] || { r: 1000, g: 0 };
+      store.players[uid] = { r: nw, g: (prev.g | 0) + 1, u: Date.now() };
+    }
+    return { id, uid, place: i + 1, old, d, nw };
   });
-  markDirty();
+  const rank = info.map((x) => ({ peer: x.id, place: x.place, nm: r.names[x.id] || '', d: x.d }));
+  for (const x of info) {
+    deliver(room, x.id, x.uid, { t: 'result', n, place: x.place, old: x.old, delta: x.d, rt: x.nw, rank });
+    if (x.uid && x.nw !== null) sendUid(x.uid, meMsg(x.uid));
+  }
+  if (info.some((x) => x.nw !== null)) markDirty();
   mark(room);
 }
 
